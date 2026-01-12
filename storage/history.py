@@ -15,17 +15,20 @@ def get_history_path():
         return SELECTED_HISTORY_PATH
 
     # Hide the main tkinter root window
-    root = Tk()
-    root.withdraw()
+    try:
+        root = Tk()
+        root.withdraw()
 
-    # Open the 'Save As' dialog
-    path = filedialog.asksaveasfilename(
-        title="Select where to save Game History",
-        defaultextension=".pkl",
-        filetypes=[("Pickle files", "*.pkl"), ("All files", "*.*")]
-    )
-
-    root.destroy()
+        # Open the 'Save As' dialog
+        path = filedialog.asksaveasfilename(
+            title="Select where to save Game History",
+            defaultextension=".pkl",
+            filetypes=[("Pickle files", "*.pkl"), ("All files", "*.*")]
+        )
+        root.destroy()
+    except Exception:
+        print("Warning: Unable to open file dialog. Using default history path.")
+        path = "game_history.pkl"
 
     if path:
         SELECTED_HISTORY_PATH = path

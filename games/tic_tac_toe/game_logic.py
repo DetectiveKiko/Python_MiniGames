@@ -15,10 +15,27 @@ def game_loop():
     setup_gui()
     draw_board()
 
-    # Setup data
-    state["board"] = [[EMPTY_CELL for _ in range(3)] for _ in range(3)]
-    state["p1"], state["p2"] = choose_players()
-    state["current"] = state["p1"]
+    # Setup data + Check for saved game
+    saved_data = load_unfinished_game()
+    if saved_data and turtle.textinput("Resume Game?", "Found an unfinished game. Load it? (y/n)") in ["y", "Y"]:
+        state["board"] = saved_data["board"]
+        turn_symbol = saved_data["turn"]
+        state["p1"], state["p2"] = choose_players()
+        state["current"] = state["p1"] if turn_symbol == state["p1"].symbol else state["p2"]
+        print("Game Loaded Successfully.")
+
+        # Redraw loaded pieces
+        for r in range(3):
+            for c in range(3):
+                if state["board"][r][c] == SYMBOL_X:
+                    draw_x(r + 1, c + 1)
+                elif state["board"][r][c] == SYMBOL_O:
+                    draw_o(r + 1, c + 1)
+    else:
+        state["board"] = [[EMPTY_CELL for _ in range(3)] for _ in range(3)]
+        state["p1"], state["p2"] = choose_players()
+        state["current"] = state["p1"]
+
     state["over"] = False
     state["busy"] = False  # Input is allowed initially
 
@@ -53,10 +70,18 @@ def handle_click(x, y):
 
 def ai_turn():
     if state["over"]: return
+
+    # 1. Get the move
     move = state["current"].get_move(state["board"])
+
+    # 2. FIX: Check if move is valid before accessing indices
     if move:
         execute_move(move[0], move[1])
-
+    else:
+        # Edge Case: AI couldn't find a move (board full?)
+        # Just in case finish() wasn't called yet
+        if all(cell != EMPTY_CELL for row in state["board"] for cell in row):
+            finish("It's a Draw!")
 
 def execute_move(r, c):
     p = state["current"]
@@ -91,8 +116,13 @@ def execute_move(r, c):
 def finish(msg):
     state["over"] = True
     messagebox.showinfo("Game Over", msg)
+
+    # Save result
     save_game_result(state["p1"].name, state["p2"].name, state["current"].name if "Wins" in msg else "Draw")
+
+    # Delete the temp save
     delete_save()
+    print("Game Over. Closing.")
     turtle.bye()
 
 

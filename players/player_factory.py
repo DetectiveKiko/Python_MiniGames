@@ -5,7 +5,7 @@ from players.computer_player import (
     RandomFourAI, SmartFourAI
 )
 from utils.constants import SYMBOL_X, SYMBOL_O
-from games.four_in_a_row.constants import SYMBOL_P1, SYMBOL_P2
+from games.four_in_a_row.constants_4IAR import SYMBOL_P1, SYMBOL_P2
 
 
 def choose_players(game_type="ttt"):

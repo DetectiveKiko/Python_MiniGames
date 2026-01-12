@@ -1,13 +1,9 @@
-from .constants import BOARD_ROWS, BOARD_COLS, EMPTY_CELL
+from .constants_TTT import BOARD_ROWS, BOARD_COLS, EMPTY_CELL
 
 
 def create_board():
     """
     Creates an empty Tic Tac Toe board.
-
-    Board structure:
-    - list of rows
-    - each row is a list of columns
     """
     return [
         [EMPTY_CELL for _ in range(BOARD_COLS)]

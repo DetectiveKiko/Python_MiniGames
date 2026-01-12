@@ -1,4 +1,3 @@
-# games/four_in_a_row/constants.py
 
 # Game Rules
 BOARD_ROWS = 6

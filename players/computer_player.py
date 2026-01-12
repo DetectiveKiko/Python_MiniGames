@@ -10,7 +10,7 @@ from utils.constants import (
 )
 
 # Import Four in a Row constants
-from games.four_in_a_row.constants import (
+from games.four_in_a_row.constants_4IAR import (
     BOARD_COLS,
     BOARD_ROWS,
     EMPTY_CELL as FOUR_EMPTY,
@@ -36,6 +36,9 @@ class SmartComputerPlayer(Player):
     def get_move(self, board, **kwargs):
         best_score = -float('inf')
         move = None
+        valid_moves = [(r, c) for r in range(3) for c in range(3) if board[r][c] == TTT_EMPTY]
+        if not valid_moves:
+            return None
         for r in range(3):
             for c in range(3):
                 if board[r][c] == TTT_EMPTY:
@@ -45,6 +48,9 @@ class SmartComputerPlayer(Player):
                     if score > best_score:
                         best_score = score
                         move = (r, c)
+        if move is None:
+            return random.choice(valid_moves)
+
         return move
 
     def minimax(self, board, depth, is_maximizing):
@@ -84,7 +90,7 @@ class SmartComputerPlayer(Player):
 
 import random
 from players.player import Player
-from games.four_in_a_row.constants import (
+from games.four_in_a_row.constants_4IAR import (
     BOARD_ROWS, BOARD_COLS, EMPTY_CELL, SYMBOL_P1, SYMBOL_P2
 )
 

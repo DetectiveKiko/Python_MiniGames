@@ -1,160 +1,160 @@
 import turtle
 from tkinter import messagebox
-from games.four_in_a_row.constants import BOARD_COLS, CELL_SIZE
-from games.four_in_a_row.gui import setup_gui, draw_board, drop_piece_visual
+from games.four_in_a_row.constants_4IAR import BOARD_COLS, CELL_SIZE, SYMBOL_P1, SYMBOL_P2
+from games.four_in_a_row.gui import setup_gui, draw_board, drop_piece_visual, draw_slot
 from games.four_in_a_row.board import FourInARowBoard
 from players.player_factory import choose_players
 from players.human_player import HumanPlayer
 from storage.history import save_game_result
 from storage.save_load import save_current_state, load_unfinished_game, delete_save
 
-# Game State Dictionary
+# Global state to manage game flow and safety locks
 state = {
     "board_obj": None,
     "p1": None,
     "p2": None,
     "current": None,
-    "over": False
+    "over": False,
+    "busy": False  # Crucial for preventing input during animations or AI processing
 }
 
 
 def game_loop():
     """Main entry point for Four in a Row."""
     setup_gui()
-
-    # 1. Setup Board Object
-    state["board_obj"] = FourInARowBoard()
-
-    # 2. Setup Players (Specify "four" to get the correct AI)
-    state["p1"], state["p2"] = choose_players(game_type="four")
-    state["current"] = state["p1"]
-    state["over"] = False
-
-    # 3. Check for Saved Game
-    saved_data = load_unfinished_game()
-    if saved_data:
-        # Ask user if they want to resume
-        res = turtle.textinput("Resume Game?", "Found an unfinished game. Load it? (y/n)")
-        if res and res.lower() == "y":
-            # Restore Board
-            state["board_obj"].grid = saved_data["board"]
-            # Restore Turn
-            turn_symbol = saved_data["turn"]
-            state["current"] = state["p1"] if turn_symbol == state["p1"].symbol else state["p2"]
-            print("Game Loaded Successfully.")
-
-    # Draw the board (whether new or loaded)
     draw_board()
-    # If loaded, we need to redraw the existing pieces
-    redraw_loaded_pieces()
+
+    state["board_obj"] = FourInARowBoard()
+    state["over"] = False
+    state["busy"] = True  # Lock input until setup is fully complete
+
+    # 1. Check for Saved Game BEFORE initializing new players
+    saved_data = load_unfinished_game()
+
+    if saved_data and turtle.textinput("Resume?", "Found an unfinished game. Load it? (y/n)") in ["y", "Y"]:
+        state["board_obj"].grid = saved_data["board"]
+        # Ask for names/modes once
+        state["p1"], state["p2"] = choose_players(game_type="four")
+
+        # Determine whose turn it is from the save
+        turn_symbol = saved_data["turn"]
+        state["current"] = state["p1"] if turn_symbol == state["p1"].symbol else state["p2"]
+
+        # Visually redraw the pieces already on the board
+        redraw_loaded_pieces()
+        print("Game Loaded Successfully.")
+    else:
+        # Start a fresh game
+        state["p1"], state["p2"] = choose_players(game_type="four")
+        state["current"] = state["p1"]
+
+    state["busy"] = False
 
     # Input Handling
     turtle.onscreenclick(handle_click)
 
-    # Check for AI start
+    # Initial AI check (if Player 1 is a computer)
     check_ai_turn()
 
     turtle.mainloop()
 
 
 def redraw_loaded_pieces():
-    """Visually updates the board based on the internal grid state."""
+    """Redraws the static board slots for a loaded game."""
     grid = state["board_obj"].grid
     for r in range(len(grid)):
         for c in range(len(grid[0])):
             symbol = grid[r][c]
-            if symbol is not None:
-                drop_piece_visual(r, c, symbol)
+            if symbol == SYMBOL_P1:
+                draw_slot(r, c, "yellow")
+            elif symbol == SYMBOL_P2:
+                draw_slot(r, c, "green")
 
 
 def handle_click(x, y):
-    """Processes human clicks."""
-    if state["over"] or state["current"] is None:
-        return
-    if not isinstance(state["current"], HumanPlayer):
+    """Processes human column selection based on x-coordinate."""
+    # Safety Check: Ignore clicks if busy, game over, or not human turn
+    if state["over"] or state["busy"] or not isinstance(state["current"], HumanPlayer):
         return
 
+    # Based on your GUI setworldcoordinates(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
     col = int(x // CELL_SIZE)
+
     if 0 <= col < BOARD_COLS:
         process_move(col)
 
 
 def check_ai_turn():
-    """Triggers AI move if it's currently the computer's turn."""
-    if not state["over"] and state["current"] is not None:
-        if not isinstance(state["current"], HumanPlayer):
-            turtle.ontimer(ai_move, 500)
+    """Schedules the AI move if the current player is a computer."""
+    if not state["over"] and not isinstance(state["current"], HumanPlayer):
+        state["busy"] = True  # Lock input while AI thinks
+        turtle.ontimer(ai_move, 500)
 
 
 def ai_move():
-    """Executes the computer's logic."""
-    if state["over"]: return
+    """Fetches move from computer player and executes it."""
+    if state["over"]:
+        return
 
     grid = state["board_obj"].grid
-    # AI logic handles its own move selection
     move = state["current"].get_move(grid)
 
-    # Safely extract column index
-    if isinstance(move, (tuple, list)):
-        col = move[0]
-    else:
-        col = move
+    # Handle both column-integer returns and coordinate-tuple returns
+    col = move[0] if isinstance(move, (tuple, list)) else move
 
     if col is not None:
         process_move(col)
 
 
 def process_move(col):
-    """Common logic for applying a move (Human or AI)."""
+    """Executes the placement, animation, and turn-switching logic."""
     board = state["board_obj"]
     row = board.get_open_row(col)
 
-    if row is not None:
-        # Update Logic & Visuals
-        board.place_piece(row, col, state["current"].symbol)
-        drop_piece_visual(row, col, state["current"].symbol)
+    if row is None:
+        # Column full: unlock so human can pick another one
+        state["busy"] = False
+        return
 
-        # SAVE STATE after every move
-        save_current_state(board.grid, state["current"].symbol)  # Saves the CURRENT player's symbol who just moved?
-        # Actually, usually better to save the NEXT player, but saving current allows us to know whose turn just finished.
-        # Let's stick to saving the symbol of the player who is *about* to move next, 
-        # or handle it carefully in load. 
-        # Simplest: Save the symbol of the player whose turn it is *before* switching, 
-        # wait, if we switch turn below, we should save the *new* current.
+    # Lock state for the duration of the animation and logic processing
+    state["busy"] = True
+    player = state["current"]
 
-        if check_game_over(board):
-            delete_save()  # Clean up save file on game over
-            return
+    # Update Logic
+    board.place_piece(row, col, player.symbol)
 
-        switch_turn()
-        # Save the state for the *next* player
+    # Update Visuals (Animation)
+    color = "yellow" if player.symbol == SYMBOL_P1 else "green"
+    drop_piece_visual(row, col, color)
+
+    # Win/Draw Detection
+    if board.check_winner(player.symbol):
+        end_game(f"Winner: {player.name}")
+    elif board.is_full():
+        end_game("It's a Draw!")
+    else:
+        # Switch Turn
+        state["current"] = state["p2"] if state["current"] == state["p1"] else state["p1"]
+
+        # Save state for the NEXT turn
         save_current_state(board.grid, state["current"].symbol)
 
+        # Unlock and check if the next player is AI
+        state["busy"] = False
         check_ai_turn()
 
 
-def switch_turn():
-    state["current"] = state["p2"] if state["current"] == state["p1"] else state["p1"]
-
-
-def check_game_over(board):
-    player = state["current"]
-    if board.check_winner(player.symbol):
-        end_game(f"Winner: {player.name}")
-        return True
-    elif board.is_full():
-        end_game("It's a Draw!")
-        return True
-    return False
-
-
 def end_game(msg):
+    """Finalizes game session, updates history, and cleans up saves."""
     state["over"] = True
     messagebox.showinfo("Game Over", msg)
 
-    # Save History
+    # Save to history file
     winner = state["current"].name if "Winner" in msg else "Draw"
-    # This calls your history.py which opens the dialog
     save_game_result(state["p1"].name, state["p2"].name, winner)
 
+    # Clean up temp files
+    delete_save()
+
+    print("Game Over. Closing.")
     turtle.bye()

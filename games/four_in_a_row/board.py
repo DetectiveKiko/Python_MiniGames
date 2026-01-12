@@ -1,6 +1,6 @@
 # games/four_in_a_row/board.py
 
-from games.four_in_a_row.constants import (
+from games.four_in_a_row.constants_4IAR import (
     BOARD_ROWS, BOARD_COLS, EMPTY_CELL, WIN_SEQUENCE
 )
 

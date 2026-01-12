@@ -1,7 +1,7 @@
 # games/four_in_a_row/gui.py
 
 import turtle
-from games.four_in_a_row.constants import (
+from games.four_in_a_row.constants_4IAR import (
     BOARD_ROWS, BOARD_COLS, SCREEN_WIDTH, SCREEN_HEIGHT,
     CELL_SIZE, SYMBOL_P1
 )
@@ -56,8 +56,7 @@ def draw_slot(row, col, color):
     t.end_fill()
 
 
-def drop_piece_visual(row, col, symbol):
-    """Updates a slot color based on player symbol."""
-    color = "yellow" if symbol == SYMBOL_P1 else "green"
+def drop_piece_visual(row, col, color):
+    """Updates a slot color using the provided color string."""
     draw_slot(row, col, color)
     screen.update()
